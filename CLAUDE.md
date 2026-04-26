@@ -8,13 +8,15 @@ This sub-project lives under `CTI/Portfolio1/` and has its own `.git`. The portf
 
 ## Run commands
 
+This is a uv project (`pyproject.toml` + `uv.lock` tracked). Use `uv run` so the project venv resolves automatically:
+
 ```bash
 # CLI
-python examples/basic_usage.py        # canned single-query demo
-python examples/advanced_usage.py     # multi-query + state save/load + provider swap
+uv run python examples/basic_usage.py        # canned single-query demo
+uv run python examples/advanced_usage.py     # multi-query + state save/load
 
-# Web UI (no config.py needed — keys entered in the form)
-streamlit run examples/streamlit_app.py
+# Web UI (no .env needed — keys entered in the form)
+uv run streamlit run examples/streamlit_app.py
 ```
 
 Reports land in `reports/` (or `OUTPUT_DIR`); per-run state JSONs land alongside them when `SAVE_INTERMEDIATE_STATES = True`.
@@ -25,7 +27,7 @@ There are no tests, no linter, no CI.
 
 Configuration is split across two files:
 
-- **`.env`** (repo root, gitignored) — API keys only: `OPENAI_API_KEY`, `TAVILY_API_KEY`. Range: see `.env.example` (tracked).
+- **`.env`** (repo root, gitignored) — API keys only: `OPENAI_API_KEY`, `TAVILY_API_KEY`. Template: `.env.example` (tracked).
 - **`config.py`** (repo root, tracked) — non-secret settings: provider/model names, `MAX_REFLECTIONS`, `OUTPUT_DIR`, etc. Loaded by dynamic-import in `_load_settings_from_py` (`src/utils/config.py`), so it must remain a valid Python module.
 
 `load_config()` calls `python-dotenv` to populate env vars from `.env`, then reads settings from `config.py` in the **current working directory** — so commands must be run from the repo root. If `config.py` is absent, the `Config` dataclass defaults are used.
@@ -60,6 +62,12 @@ When adding a node, pick the right base class. The agent assumes `mutate_state` 
 ## Prompts
 
 All prompts live in `src/prompts/prompts.py`. LLM outputs are parsed as JSON in the nodes — when editing a prompt, the JSON shape (`search_query`, `reasoning`, paragraph schema, etc.) is load-bearing and must match what the corresponding node expects.
+
+`SYSTEM_PROMPT_REPORT_STRUCTURE` ships an explicit JSON-array example because newer OpenAI models would otherwise emit a single object or NDJSON stream when the prose said「對象」instead of「數組」. The parser in `src/utils/text_processing.py` (`_extract_balanced_json` + `_parse_balanced_json_sequence`) is string-aware balanced-bracket extraction, deliberately tolerant of code fences, prose prefixes, and NDJSON streams — preserve that contract when touching either layer.
+
+## OpenAI client notes
+
+`src/llms/openai_llm.py` sends `max_completion_tokens` (not `max_tokens` — the latter is rejected by gpt-5.x and o-series). Other newer models also reject non-default `temperature`; if you switch to one of those, strip or pin `temperature=1` in `OpenAILLM.invoke`.
 
 ## Git commits
 
