@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
-from .llms import DeepSeekLLM, OpenAILLM, BaseLLM
+from .llms import OpenAILLM, BaseLLM
 from .nodes import (
     ReportStructureNode,
     FirstSearchNode, 
@@ -52,12 +52,7 @@ class DeepSearchAgent:
     
     def _initialize_llm(self) -> BaseLLM:
         """初始化LLM客户端"""
-        if self.config.default_llm_provider == "deepseek":
-            return DeepSeekLLM(
-                api_key=self.config.deepseek_api_key,
-                model_name=self.config.deepseek_model
-            )
-        elif self.config.default_llm_provider == "openai":
+        if self.config.default_llm_provider == "openai":
             return OpenAILLM(
                 api_key=self.config.openai_api_key,
                 model_name=self.config.openai_model
@@ -117,7 +112,9 @@ class DeepSearchAgent:
         print(f"\n[步骤 1] 生成报告结构...")
         
         # 创建报告结构节点
-        report_structure_node = ReportStructureNode(self.llm_client, query)
+        report_structure_node = ReportStructureNode(
+            self.llm_client, query, max_paragraphs=self.config.max_paragraphs
+        )
         
         # 生成结构并更新状态
         self.state = report_structure_node.mutate_state(state=self.state)

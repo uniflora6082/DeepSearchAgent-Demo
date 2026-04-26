@@ -9,7 +9,6 @@ __pycache__/
 # uv.lock 要提交,不要忽略
 
 # 敏感資訊
-config.py
 .env
 
 # 輸出
@@ -22,3 +21,6 @@ custom_reports/
 .vscode/
 .idea/
 .DS_Store
+
+# Claude Code 本機設定
+.claude/settings.local.json

@@ -23,11 +23,14 @@ There are no tests, no linter, no CI.
 
 ## Configuration
 
-`config.py` at the repo root holds real API keys (DeepSeek / OpenAI / Tavily) and is gitignored. `Config.from_file` (`src/utils/config.py`) loads it by dynamic-import, so it must remain a valid Python module — not `.env` syntax. A `.env`-style file is also accepted as a fallback.
+Configuration is split across two files:
 
-`load_config()` searches `config.py`, `config.env`, `.env` in order from the **current working directory**, so commands must be run from the repo root.
+- **`.env`** (repo root, gitignored) — API keys only: `OPENAI_API_KEY`, `TAVILY_API_KEY`. Range: see `.env.example` (tracked).
+- **`config.py`** (repo root, tracked) — non-secret settings: provider/model names, `MAX_REFLECTIONS`, `OUTPUT_DIR`, etc. Loaded by dynamic-import in `_load_settings_from_py` (`src/utils/config.py`), so it must remain a valid Python module.
 
-DeepSeek is wired through the `openai` SDK pointed at `https://api.deepseek.com` (`src/llms/deepseek.py`) — it is not a separate client. Adding a new provider means subclassing `BaseLLM` and registering it in `DeepSearchAgent._initialize_llm`.
+`load_config()` calls `python-dotenv` to populate env vars from `.env`, then reads settings from `config.py` in the **current working directory** — so commands must be run from the repo root. If `config.py` is absent, the `Config` dataclass defaults are used.
+
+Adding a new LLM provider means subclassing `BaseLLM` (`src/llms/base.py`) and registering it in `DeepSearchAgent._initialize_llm`. The OpenAI client lives in `src/llms/openai_llm.py`.
 
 ## Pipeline architecture
 
@@ -57,3 +60,15 @@ When adding a node, pick the right base class. The agent assumes `mutate_state` 
 ## Prompts
 
 All prompts live in `src/prompts/prompts.py`. LLM outputs are parsed as JSON in the nodes — when editing a prompt, the JSON shape (`search_query`, `reasoning`, paragraph schema, etc.) is load-bearing and must match what the corresponding node expects.
+
+## Git commits
+
+Commit messages follow Conventional Commits: `<type>: <短描述>`. The description stays in zh-TW (per portfolio convention); only the prefix is fixed English.
+
+| Prefix | When to use |
+|--------|-------------|
+| `feat:` | 新功能 |
+| `fix:` | Bug 修正 |
+| `refactor:` | 重構既有函數（行為不變） |
+| `docs:` | 文件更新 |
+| `test:` | 測試相關 |

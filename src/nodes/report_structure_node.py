@@ -20,16 +20,18 @@ from ..utils.text_processing import (
 class ReportStructureNode(StateMutationNode):
     """生成报告结构的节点"""
     
-    def __init__(self, llm_client, query: str):
+    def __init__(self, llm_client, query: str, max_paragraphs: int = 5):
         """
         初始化报告结构节点
-        
+
         Args:
             llm_client: LLM客户端
             query: 用户查询
+            max_paragraphs: 段落数硬上限（對齊 prompt 的「最多五个段落」與 config.MAX_PARAGRAPHS）
         """
         super().__init__(llm_client, "ReportStructureNode")
         self.query = query
+        self.max_paragraphs = max_paragraphs
     
     def validate_input(self, input_data: Any) -> bool:
         """验证输入数据"""
@@ -83,7 +85,7 @@ class ReportStructureNode(StateMutationNode):
             except JSONDecodeError:
                 # 使用更强大的提取方法
                 report_structure = extract_clean_response(cleaned_output)
-                if "error" in report_structure:
+                if isinstance(report_structure, dict) and "error" in report_structure:
                     raise ValueError("JSON解析失败")
             
             # 验证结构
@@ -104,7 +106,10 @@ class ReportStructureNode(StateMutationNode):
                     "content": content
                 })
             
-            return validated_structure
+            if not validated_structure:
+                raise ValueError("未找到有效的报告结构")
+
+            return validated_structure[: self.max_paragraphs]
             
         except Exception as e:
             self.log_error(f"处理输出失败: {str(e)}")

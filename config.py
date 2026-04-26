@@ -1,22 +1,15 @@
-# Deep Search Agent 配置文件
-# 请在这里填入您的API密钥
+# Deep Search Agent 設定（非機密）
+# API key 請放 .env（範本見 .env.example）
 
-# DeepSeek API Key
-DEEPSEEK_API_KEY = "your_deepseek_api_key_here"
+# LLM 提供商
+DEFAULT_LLM_PROVIDER = "openai"
+OPENAI_MODEL = "gpt-5.4-mini-2026-03-17"
 
-# OpenAI API Key (可选)
-OPENAI_API_KEY = "your_openai_api_key_here"
-
-# Tavily搜索API Key
-TAVILY_API_KEY = "your_tavily_api_key_here"
-
-# 配置参数
-DEFAULT_LLM_PROVIDER = "deepseek"
-DEEPSEEK_MODEL = "deepseek-chat"
-OPENAI_MODEL = "gpt-4o-mini"
-
+# Agent / Search 參數
 MAX_REFLECTIONS = 2
 SEARCH_RESULTS_PER_QUERY = 3
 SEARCH_CONTENT_MAX_LENGTH = 20000
+
+# 輸出
 OUTPUT_DIR = "reports"
 SAVE_INTERMEDIATE_STATES = True

@@ -54,12 +54,12 @@ class OpenAILLM(BaseLLM):
                 {"role": "user", "content": user_prompt}
             ]
             
-            # 设置默认参数
+            # 设置默认参数（新版 OpenAI 已用 max_completion_tokens 取代 max_tokens）
             params = {
                 "model": self.default_model,
                 "messages": messages,
                 "temperature": kwargs.get("temperature", 0.7),
-                "max_tokens": kwargs.get("max_tokens", 4000)
+                "max_completion_tokens": kwargs.get("max_completion_tokens", kwargs.get("max_tokens", 4000)),
             }
             
             # 调用API

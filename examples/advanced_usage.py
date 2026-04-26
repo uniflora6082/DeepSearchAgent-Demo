@@ -23,7 +23,6 @@ def advanced_example():
         # 自定义配置
         print("正在创建自定义配置...")
         config = Config(
-            # 使用OpenAI而不是DeepSeek
             default_llm_provider="openai",
             openai_model="gpt-4o-mini",
             # 自定义搜索参数

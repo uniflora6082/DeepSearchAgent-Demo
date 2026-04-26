@@ -3,9 +3,9 @@
 用于清理LLM输出、解析JSON等
 """
 
-import re
 import json
-from typing import Dict, Any, List
+import re
+from typing import Any, Dict, List
 from json.decoder import JSONDecodeError
 
 
@@ -55,20 +55,107 @@ def remove_reasoning_from_output(text: str) -> str:
     Returns:
         清理后的文本
     """
-    # 移除常见的推理标识
-    patterns = [
-        r'(?:reasoning|推理|思考|分析)[:：]\s*.*?(?=\{|\[)',  # 移除推理部分
-        r'(?:explanation|解释|说明)[:：]\s*.*?(?=\{|\[)',   # 移除解释部分
-        r'^.*?(?=\{|\[)',  # 移除JSON前的所有文本
-    ]
-    
-    for pattern in patterns:
-        text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
-    
-    return text.strip()
+    stripped_text = text.strip()
+    cleaned_text = clean_json_tags(stripped_text)
+
+    if cleaned_text.lstrip().startswith(("{", "[")):
+        return cleaned_text.strip()
+
+    json_fragment = _extract_balanced_json(cleaned_text)
+    if json_fragment:
+        fragment_start = cleaned_text.find(json_fragment)
+        prefix = cleaned_text[:fragment_start].strip()
+        if len(prefix) <= 200 and re.search(
+            r'(?:json|reasoning|analysis|explanation|推理|思考|解释|说明|输出|结果)',
+            prefix,
+            flags=re.IGNORECASE,
+        ):
+            return cleaned_text[fragment_start:].strip()
+
+    return stripped_text
 
 
-def extract_clean_response(text: str) -> Dict[str, Any]:
+def _extract_balanced_json(text: str) -> str:
+    """返回文本中的第一个完整 JSON object/array 字符串。"""
+    start = re.search(r'[\{\[]', text)
+    if not start:
+        return ""
+
+    opening = text[start.start()]
+    closing = "}" if opening == "{" else "]"
+    stack = [closing]
+    in_string = False
+    escaped = False
+
+    for index in range(start.start() + 1, len(text)):
+        char = text[index]
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char in "{[":
+            stack.append("}" if char == "{" else "]")
+        elif char in "}]":
+            if not stack or char != stack[-1]:
+                return ""
+            stack.pop()
+            if not stack:
+                return text[start.start():index + 1]
+
+    return ""
+
+
+def _parse_balanced_json_sequence(text: str) -> tuple[bool, Any]:
+    """解析文本中连续出现的 JSON object/array。"""
+    values = []
+    position = 0
+
+    while position < len(text):
+        if values:
+            while position < len(text) and text[position].isspace():
+                position += 1
+
+            if position >= len(text) or text[position] != ",":
+                break
+
+            position += 1
+
+            while position < len(text) and text[position].isspace():
+                position += 1
+
+        fragment = _extract_balanced_json(text[position:])
+        if not fragment:
+            break
+
+        fragment_start = text.find(fragment, position)
+        between = text[position:fragment_start].strip()
+        if values and between:
+            break
+
+        try:
+            values.append(json.loads(fragment))
+        except JSONDecodeError:
+            break
+
+        position = fragment_start + len(fragment)
+
+    if len(values) > 1:
+        return True, values
+    if values:
+        return True, values[0]
+
+    return False, None
+
+
+def extract_clean_response(text: str) -> Any:
     """
     提取并清理响应中的JSON内容
     
@@ -76,35 +163,28 @@ def extract_clean_response(text: str) -> Dict[str, Any]:
         text: 原始响应文本
         
     Returns:
-        解析后的JSON字典
+        解析后的JSON内容
     """
-    # 清理文本
-    cleaned_text = clean_json_tags(text)
-    cleaned_text = remove_reasoning_from_output(cleaned_text)
-    
-    # 尝试直接解析
-    try:
-        return json.loads(cleaned_text)
-    except JSONDecodeError:
-        pass
-    
-    # 尝试查找JSON对象
-    json_pattern = r'\{.*\}'
-    match = re.search(json_pattern, cleaned_text, re.DOTALL)
-    if match:
+    candidates = [
+        text.strip(),
+        clean_json_tags(text),
+        remove_reasoning_from_output(clean_json_tags(text)),
+    ]
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+
         try:
-            return json.loads(match.group())
+            return json.loads(candidate)
         except JSONDecodeError:
             pass
-    
-    # 尝试查找JSON数组
-    array_pattern = r'\[.*\]'
-    match = re.search(array_pattern, cleaned_text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except JSONDecodeError:
-            pass
+
+        found_json, parsed_json = _parse_balanced_json_sequence(candidate)
+        if found_json:
+            return parsed_json
+
+    cleaned_text = remove_reasoning_from_output(clean_json_tags(text))
     
     # 如果所有方法都失败，返回错误信息
     print(f"无法解析JSON响应: {cleaned_text[:200]}...")
